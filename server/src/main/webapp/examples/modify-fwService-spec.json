@@ -1,0 +1,22 @@
+[
+  {
+    "operation": "shift",
+    "spec": {
+      "*": {
+        "item*": "@(0)"
+      }
+    }
+  },
+  {
+    "operation": "shift",
+    "spec": {
+      "*": "items"
+    }
+  },
+  {
+    "operation": "modify-overwrite-beta",
+    "spec": {
+      "sumIntData": "=intSum(@(1,items))"
+    }
+  }
+]

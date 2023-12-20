@@ -50,7 +50,7 @@ Here you can experiment with the stock Jolt Transforms without having to downloa
 </div>
 </div> <!-- row 1 -->
 
-<form id="transformForm" role="form" action="/transform" method="post">
+<form id="transformForm" role="form" action="/server-0.0.1-SNAPSHOT/transform" method="post">
 
 <div class="row"> <!-- row 2 -->
 <div class="col-lg-4 col-md-6 col-sm-12">
@@ -73,6 +73,7 @@ Here you can experiment with the stock Jolt Transforms without having to downloa
         <div class="panel-heading">
             <label for="spec">Jolt Spec</label>
             <button type="button" id="specValidateButton" class="btn btn-default">JSON Validate</button>
+            <button type="button" id="specGenerateButton" class="btn btn-default">Generate</button>
         </div>
         <div class="panel-body">
             <textarea form="transformForm" class="form-control" id="spec" rows="20">
@@ -139,6 +140,7 @@ Here you can experiment with the stock Jolt Transforms without having to downloa
                     <li><a href="#" onclick="loadExample( 'modify-mathFunctions' ); return false;">Math Functions</a></li>
                     <li><a href="#" onclick="loadExample( 'modify-typeConversion' ); return false;">Type Conversion</a></li>
                     <li><a href="#" onclick="loadExample( 'modify-stringFunctions' ); return false;">String Concatenation</a></li>
+                    <li><a href="#" onclick="loadExample( 'modify-fwService' ); return false;">FreshWorks Service</a></li>
                 </ol>
             </div>
         </div>
