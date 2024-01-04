@@ -1,13 +1,15 @@
 package com.bazaarvoice.jolt;
 
-import com.bazaarvoice.jolt.exception.JoltException;
-
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import com.bazaarvoice.jolt.exception.JoltException;
 
 /**
  * With the move to the Java8 App Engine, I had a hell of a time
@@ -37,6 +39,10 @@ public class JoltServlet extends HttpServlet {
             inputString = req.getParameter( "input" );
 
             specString = req.getParameter( "spec" );
+
+            //Filter the actual Jolt spec
+            ArrayList joltSpec = getArrayList(specString);
+            specString = JsonUtils.toJsonString(joltSpec);
 
             sort = Boolean.valueOf( req.getParameter( "sort" ) );
         }
@@ -100,5 +106,18 @@ public class JoltServlet extends HttpServlet {
 
             return sb.toString();
         }
+    }
+
+    /*
+    * Extracting the Jolt spec array
+    * */
+    private ArrayList getArrayList(String spec) {
+        ArrayList specJSON = (ArrayList) JsonUtils.jsonToObject(spec);
+        LinkedHashMap linkedHashMap3 = (LinkedHashMap) (specJSON.get(0));
+        ArrayList configs = (ArrayList) linkedHashMap3.get("configs");
+        LinkedHashMap linkedHashMap2 = (LinkedHashMap) configs.get(0);
+        LinkedHashMap linkedHashMap1 = (LinkedHashMap) linkedHashMap2.get("query");
+        ArrayList al = (ArrayList) linkedHashMap1.get("select");
+        return al;
     }
 }
