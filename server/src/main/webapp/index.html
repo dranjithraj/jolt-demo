@@ -50,8 +50,8 @@ Here you can experiment with the stock Jolt Transforms without having to downloa
 </div>
 </div> <!-- row 1 -->
 
-<form id="transformForm" role="form" action="/server-0.0.1-SNAPSHOT/transform" method="post">
-<form id="generateForm" role="form" action="/server-0.0.1-SNAPSHOT/generate" method="post">
+<form id="transformForm" role="form" action="/server/transform" method="post">
+<form id="generateForm" role="form" action="/server/generate" method="post">
 <div class="row"> <!-- row 2 -->
 <div class="col-lg-4 col-md-6 col-sm-12">
 
@@ -209,6 +209,8 @@ Here you can experiment with the stock Jolt Transforms without having to downloa
 <!-- Script at the bottom so that we know that html elements have been loaded. -->
 <script type="text/javascript">
 
+var context = "/server";
+
 var codeMirrorOptionsInput =
 {
     "mode": "application/json",  // Treat input as Json
@@ -312,7 +314,7 @@ function generateSpec() {
     var $form = $( this ),
         input = inputCodeMirror.getValue(),
         sort  = $("#sort").is(":checked"),
-        url   = "/server-0.0.1-SNAPSHOT/generate";
+        url   = context + "/generate";
 
     // Send the data using post
     var posting = $.post( url, { input : input, sort : sort } );
@@ -465,7 +467,7 @@ $("#raisePRButton").click(function(event) {
     var $form = $( this ),
         input = inputCodeMirror.getValue(),
         spec  = specCodeMirror.getValue(),
-        url   = '/server/pullrequest'
+        url   = context + '/pullrequest'
 
     outputCodeMirror.setValue( "Sending 'input' and 'spec' to the server to submit PR." );
 

@@ -29,6 +29,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <maven.compiler.showDeprecation>true</maven.compiler.showDeprecation>
         <archiveClasses>true</archiveClasses>
+        <jgit.version>6.6.1.202309021850-r</jgit.version>
     </properties>
 
     <prerequisites>
@@ -39,8 +40,13 @@
 		<dependency>
 		    <groupId>org.eclipse.jgit</groupId>
 		    <artifactId>org.eclipse.jgit</artifactId>
-		    <version>6.6.1.202309021850-r</version>
+		    <version>${jgit.version}</version>
 		</dependency>
+		<dependency>
+            <groupId>org.eclipse.jgit</groupId>
+            <artifactId>org.eclipse.jgit.ssh.jsch</artifactId>
+            <version>${jgit.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.example.appengine.demo</groupId>
             <artifactId>simple-jetty-main</artifactId>
