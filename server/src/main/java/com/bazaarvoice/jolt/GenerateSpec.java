@@ -1,6 +1,8 @@
 package com.bazaarvoice.jolt;
 
-import com.bazaarvoice.jolt.helper.Data;
+import com.bazaarvoice.jolt.helper.Item;
+import com.bazaarvoice.jolt.helper.ItemsList;
+import com.bazaarvoice.jolt.helper.MainClass;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 
@@ -15,41 +17,57 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.logging.Logger;
 
 @WebServlet("/generate")
 public class GenerateSpec extends HttpServlet {
 
     public static final String UNDERSCORE = "_";
+    public static final String INPUT = "input";
+    public static final String USER_CREATE_CONFIG_FTL = "user_create_config.ftl";
+    public static final String MODEL_PROPERTIES = "model_properties";
+    public static final String PAYLOAD = "payload";
+    final Logger logger = Logger.getLogger(getClass().getName());
 
     protected void doPost(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
-        System.out.println("===========/generate POST Request ===========");
-        System.out.println("input-> " + req.getParameter("input"));
+        logger.info("===========/generate POST Request ===========");
+        logger.info("input-> " + req.getParameter("input"));
 
-        String inputPayload;
+        String inputPayloadString;
         try {
-            inputPayload = req.getParameter("input");
+            inputPayloadString = req.getParameter(INPUT);
         } catch (Exception e) {
             response.getWriter().println("Could not url-decode the inputs.\n");
             return;
         }
-        Object input;
+
+        Object inputPayloadJSON;
         Writer writer = new StringWriter();
         Configuration configuration = new Configuration();
         LinkedHashMap linkedHashMap = new LinkedHashMap();
+        List<Item> items = new ArrayList<>();
+        ItemsList itemsList = new ItemsList(items);
         try {
-            input = JsonUtils.jsonToObject(inputPayload);
-            if (input instanceof LinkedHashMap) {
-                linkedHashMap = (LinkedHashMap) input;
-            } else if (input instanceof ArrayList){
-                linkedHashMap = (LinkedHashMap) ((ArrayList)input).get(0);
+            inputPayloadJSON = JsonUtils.jsonToObject(inputPayloadString);
+            if (inputPayloadJSON instanceof LinkedHashMap) {
+                linkedHashMap = (LinkedHashMap) inputPayloadJSON;
+            } else if (inputPayloadJSON instanceof ArrayList){
+                linkedHashMap = (LinkedHashMap) ((ArrayList)inputPayloadJSON).get(0);
             }
-            Object firstObjectKey = linkedHashMap.keySet().toArray()[0];
-            String sample = firstObjectKey.toString().split(UNDERSCORE)[0];
-            Data data = new Data(sample);
-            configuration.setDirectoryForTemplateLoading(new File(GenerateSpec.class.getResource("/").toURI()));
-            Template template = configuration.getTemplate("spec_template.ftl");
+            LinkedHashMap payloadJson = (LinkedHashMap)linkedHashMap.get(PAYLOAD);
+            Set keys = ((LinkedHashMap) payloadJson.get(MODEL_PROPERTIES)).keySet();
 
-            template.process(data, writer);
+            keys.forEach(key -> {
+                if (!(((LinkedHashMap) payloadJson.get(MODEL_PROPERTIES)).get(key.toString()) instanceof ArrayList))
+                    items.add(new Item(key.toString(), 0));
+            });
+
+            configuration.setDirectoryForTemplateLoading(new File(MainClass.class.getResource("/").toURI()));
+            Template template = configuration.getTemplate(USER_CREATE_CONFIG_FTL);
+
+            template.process(itemsList, writer);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -58,7 +76,7 @@ public class GenerateSpec extends HttpServlet {
         }
 
         String result = writer.toString();
-        System.out.println("Java GenerateSpec result=> "+ result);
+        logger.info("Java GenerateSpec result=> "+ result);
 
         // Add PR details in the response
         response.getWriter().println(result);
