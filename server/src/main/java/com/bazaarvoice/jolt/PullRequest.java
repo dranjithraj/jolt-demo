@@ -40,13 +40,13 @@ import com.jcraft.jsch.UserInfo;
  */
 @WebServlet("/pullrequest")
 public class PullRequest extends HttpServlet {
-	private static final String PASS_PHRASE = "<GIT_SSH_PASS_PHRASE>";
+	private static final String PASS_PHRASE = "12345";
 
-	private static final String REMOTE_NAME = "<DEFAULT_ORIGIN>";
+	private static final String REMOTE_NAME = "ranjith";
 	
 	private static final long serialVersionUID = 1L;
 	// Update the path of activity-serve local git location	
-	private static final String BASE_REPO_PATH = "<activity-serv_local_repo>";
+	private static final String BASE_REPO_PATH = "/Users/raraj/Documents/rspace/projects/freshservice/source/activity-serv";
 	
 	private static final String GIT_BASE_REPO_PATH = BASE_REPO_PATH + "/.git";
 	private GitService gitService;

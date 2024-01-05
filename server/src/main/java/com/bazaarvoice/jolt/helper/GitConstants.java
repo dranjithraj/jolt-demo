@@ -10,7 +10,7 @@ final public class GitConstants {
 	public static final String GIT_BRANCHNAME_PREFIX = "FS_";
 	
 	//Move below items to properties
-	public static final String GIT_REPOSITORY_NAME = "jolt-specs";
+	public static final String GIT_REPOSITORY_NAME = "activity-serv";
 	
 
 }

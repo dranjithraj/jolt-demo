@@ -1,0 +1,6 @@
+freshrelease:
+     P2 Template1 : p2_template1.ftl
+     P2 Template2 : p2_template2.ftl
+freshservice:
+    BaseTemplate : user_create_config.ftl
+    P1 Template : p1_template2.ftl

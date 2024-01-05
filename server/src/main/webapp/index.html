@@ -50,8 +50,8 @@ Here you can experiment with the stock Jolt Transforms without having to downloa
 </div>
 </div> <!-- row 1 -->
 
-<form id="transformForm" role="form" action="/server/transform" method="post">
-<form id="generateForm" role="form" action="/server/generate" method="post">
+<form id="transformForm" role="form" action="/server-0.0.1-SNAPSHOT/transform" method="post">
+<form id="generateForm" role="form" action="/server-0.0.1-SNAPSHOT/generate" method="post">
 <div class="row"> <!-- row 2 -->
 <div class="col-lg-4 col-md-6 col-sm-12">
 
@@ -74,7 +74,13 @@ Here you can experiment with the stock Jolt Transforms without having to downloa
         <div class="panel-heading">
             <label for="spec">Jolt Spec</label>
             <button type="button" id="specValidateButton" class="btn btn-default">JSON Validate</button>
-            <button type="button" id="specGenerateButton" class="btn btn-default">Generate</button>
+            <select name="Product" id="productName">
+                <option value="empty">Product</option>
+            </select>
+            <select name="Template" id="template" disabled>
+                <option value="empty">Template</option>
+            </select>
+            <button type="button" id="specGenerateButton" class="btn btn-default" disabled>Generate</button>
         </div>
         <div class="panel-body">
             <textarea form="transformForm" class="form-control" id="spec" rows="20">
@@ -208,8 +214,74 @@ Here you can experiment with the stock Jolt Transforms without having to downloa
 
 <!-- Script at the bottom so that we know that html elements have been loaded. -->
 <script type="text/javascript">
+var productTemplateData;
 
-var context = "/server";
+function removeOptions(selectElement, defaultValue) {
+   var i, L = selectElement.options.length - 1;
+   for(i = L; i >= 0; i--) {
+      selectElement.remove(i);
+   }
+
+   // Add default value
+   var productTemplateElement = document.getElementById("template");
+   addDefaultElement(productTemplateElement, defaultValue);
+}
+
+function addDefaultElement(selectElement, defaultValue) {
+    var opt = document.createElement('option');
+    opt.value = "empty";
+    opt.innerHTML = defaultValue;
+    selectElement.appendChild(opt);
+}
+
+
+$("#template").change(function () {
+    specGenerateButtonElement = document.getElementById("specGenerateButton");
+    specGenerateButtonElement.disabled = false;
+});
+
+$("#productName").change(function () {
+
+    productListElement = document.getElementById("productName");
+    productTemplateListElement = document.getElementById("template");
+    productTemplateListElement.disabled = false;
+    var productName = productListElement.value;
+    var templateList = productTemplateData[productName];
+    var templateNamesList = Object.keys(templateList);
+    removeOptions(productTemplateListElement, "Select Template");
+    for (var i = 0; i<templateNamesList.length; i++){
+        var opt = document.createElement('option');
+        opt.value = templateList[templateNamesList[i]];
+        opt.innerHTML = templateNamesList[i];
+        productTemplateListElement.appendChild(opt);
+    }
+
+});
+
+window.addEventListener("load",function(){
+    productListElement = document.getElementById("productName");
+
+    // get some values from elements on the page:
+    var $form = $( this ),
+        url   = '/server-0.0.1-SNAPSHOT/templates'
+
+    outputCodeMirror.setValue( "Loading Products and Templates" );
+
+    // Send the data using post
+    var getting = $.get( url);
+
+    getting.done(function(data){
+        productTemplateData = data;
+        var productNames = Object.keys(data);
+        for (var i = 0; i<productNames.length; i++){
+            var opt = document.createElement('option');
+            opt.value = productNames[i];
+            opt.innerHTML = productNames[i];
+            productListElement.appendChild(opt);
+        }
+    });
+},false);
+
 
 var codeMirrorOptionsInput =
 {
@@ -314,10 +386,11 @@ function generateSpec() {
     var $form = $( this ),
         input = inputCodeMirror.getValue(),
         sort  = $("#sort").is(":checked"),
-        url   = context + "/generate";
+        template  = document.getElementById("template").value,
+        url   = "/server-0.0.1-SNAPSHOT/generate";
 
     // Send the data using post
-    var posting = $.post( url, { input : input, sort : sort } );
+    var posting = $.post( url, { input : input, sort : sort, template : template } );
 
     // Put the results in a div
     posting.done(function( data ) {
@@ -467,7 +540,7 @@ $("#raisePRButton").click(function(event) {
     var $form = $( this ),
         input = inputCodeMirror.getValue(),
         spec  = specCodeMirror.getValue(),
-        url   = context + '/pullrequest'
+        url   = '/server-0.0.1-SNAPSHOT/pullrequest'
 
     outputCodeMirror.setValue( "Sending 'input' and 'spec' to the server to submit PR." );
 

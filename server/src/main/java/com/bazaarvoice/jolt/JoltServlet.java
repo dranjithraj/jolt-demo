@@ -111,13 +111,13 @@ public class JoltServlet extends HttpServlet {
     /*
     * Extracting the Jolt spec array
     * */
-    private ArrayList getArrayList(String spec) {
-        ArrayList specJSON = (ArrayList) JsonUtils.jsonToObject(spec);
-        LinkedHashMap linkedHashMap3 = (LinkedHashMap) (specJSON.get(0));
-        ArrayList configs = (ArrayList) linkedHashMap3.get("configs");
-        LinkedHashMap linkedHashMap2 = (LinkedHashMap) configs.get(0);
-        LinkedHashMap linkedHashMap1 = (LinkedHashMap) linkedHashMap2.get("query");
-        ArrayList al = (ArrayList) linkedHashMap1.get("select");
+    private ArrayList<Object> getArrayList(String spec) {
+        ArrayList<Object> specJSON = (ArrayList) JsonUtils.jsonToObject(spec);
+        LinkedHashMap<String, Object> linkedHashMap3 = (LinkedHashMap) (specJSON.get(0));
+        ArrayList<Object> configs = (ArrayList) linkedHashMap3.get("configs");
+        LinkedHashMap<String, Object> linkedHashMap2 = (LinkedHashMap) configs.get(0);
+        LinkedHashMap<String, Object> linkedHashMap1 = (LinkedHashMap) linkedHashMap2.get("query");
+        ArrayList<Object> al = (ArrayList) linkedHashMap1.get("select");
         return al;
     }
 }

@@ -19,25 +19,31 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @WebServlet("/generate")
 public class GenerateSpec extends HttpServlet {
 
     public static final String UNDERSCORE = "_";
-    public static final String INPUT = "input";
+    public static final String PARAM_INPUT = "input";
     public static final String USER_CREATE_CONFIG_FTL = "user_create_config.ftl";
     public static final String MODEL_PROPERTIES = "model_properties";
     public static final String PAYLOAD = "payload";
+    public static final String PARAM_TEMPLATE = "template";
     final Logger logger = Logger.getLogger(getClass().getName());
 
+    @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
         logger.info("===========/generate POST Request ===========");
-        logger.info("input-> " + req.getParameter("input"));
+        logger.log(Level.INFO, "input-> {0}", req.getParameter(PARAM_INPUT));
+        logger.log(Level.INFO,"sort-> {0}", req.getParameter("sort"));
+        logger.log(Level.INFO,"template-> {0}", req.getParameter(PARAM_TEMPLATE));
+        String templateFileName = req.getParameter(PARAM_TEMPLATE);
 
         String inputPayloadString;
         try {
-            inputPayloadString = req.getParameter(INPUT);
+            inputPayloadString = req.getParameter(PARAM_INPUT);
         } catch (Exception e) {
             response.getWriter().println("Could not url-decode the inputs.\n");
             return;
@@ -57,15 +63,15 @@ public class GenerateSpec extends HttpServlet {
                 linkedHashMap = (LinkedHashMap) ((ArrayList)inputPayloadJSON).get(0);
             }
             LinkedHashMap payloadJson = (LinkedHashMap)linkedHashMap.get(PAYLOAD);
-            Set keys = ((LinkedHashMap) payloadJson.get(MODEL_PROPERTIES)).keySet();
+            Set<String> keys = ((LinkedHashMap) payloadJson.get(MODEL_PROPERTIES)).keySet();
 
             keys.forEach(key -> {
-                if (!(((LinkedHashMap) payloadJson.get(MODEL_PROPERTIES)).get(key.toString()) instanceof ArrayList))
-                    items.add(new Item(key.toString(), 0));
+                if (!(((LinkedHashMap) payloadJson.get(MODEL_PROPERTIES)).get(key) instanceof ArrayList))
+                    items.add(new Item(key, 0));
             });
 
             configuration.setDirectoryForTemplateLoading(new File(MainClass.class.getResource("/").toURI()));
-            Template template = configuration.getTemplate(USER_CREATE_CONFIG_FTL);
+            Template template = configuration.getTemplate(templateFileName);
 
             template.process(itemsList, writer);
 
@@ -76,7 +82,7 @@ public class GenerateSpec extends HttpServlet {
         }
 
         String result = writer.toString();
-        logger.info("Java GenerateSpec result=> "+ result);
+        logger.log( Level.INFO, "Java GenerateSpec result=> {0}", result);
 
         // Add PR details in the response
         response.getWriter().println(result);
