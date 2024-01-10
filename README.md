@@ -30,6 +30,11 @@ ssh-keygen -t ecdsa -b 256 -m PEM
 
 Add the generated file in the ssh config
 ```
+cd .ssh
+touch config
+```
+file content
+```
 Host github.com
   Hostname github.com
   AddKeysToAgent yes
