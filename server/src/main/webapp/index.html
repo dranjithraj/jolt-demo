@@ -50,8 +50,8 @@ Here you can experiment with the stock Jolt Transforms without having to downloa
 </div>
 </div> <!-- row 1 -->
 
-<form id="transformForm" role="form" action="/server-0.0.1-SNAPSHOT/transform" method="post">
-<form id="generateForm" role="form" action="/server-0.0.1-SNAPSHOT/generate" method="post">
+<form id="transformForm" role="form" action="/server/transform" method="post">
+<form id="generateForm" role="form" action="/server/generate" method="post">
 <div class="row"> <!-- row 2 -->
 <div class="col-lg-4 col-md-6 col-sm-12">
 
@@ -263,7 +263,7 @@ window.addEventListener("load",function(){
 
     // get some values from elements on the page:
     var $form = $( this ),
-        url   = '/server-0.0.1-SNAPSHOT/templates'
+        url   = '/server/templates'
 
     outputCodeMirror.setValue( "Loading Products and Templates" );
 
@@ -387,7 +387,7 @@ function generateSpec() {
         input = inputCodeMirror.getValue(),
         sort  = $("#sort").is(":checked"),
         template  = document.getElementById("template").value,
-        url   = "/server-0.0.1-SNAPSHOT/generate";
+        url   = "/server/generate";
 
     // Send the data using post
     var posting = $.post( url, { input : input, sort : sort, template : template } );
@@ -540,7 +540,7 @@ $("#raisePRButton").click(function(event) {
     var $form = $( this ),
         input = inputCodeMirror.getValue(),
         spec  = specCodeMirror.getValue(),
-        url   = '/server-0.0.1-SNAPSHOT/pullrequest'
+        url   = '/server/pullrequest'
 
     outputCodeMirror.setValue( "Sending 'input' and 'spec' to the server to submit PR." );
 

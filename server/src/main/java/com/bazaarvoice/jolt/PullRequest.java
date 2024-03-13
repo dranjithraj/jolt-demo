@@ -42,7 +42,7 @@ import com.jcraft.jsch.UserInfo;
 public class PullRequest extends HttpServlet {
 	private static final String PASS_PHRASE = "12345";
 
-	private static final String REMOTE_NAME = "ranjith";
+	private static final String REMOTE_NAME = "origin";
 	
 	private static final long serialVersionUID = 1L;
 	// Update the path of activity-serve local git location	
@@ -140,8 +140,8 @@ public class PullRequest extends HttpServlet {
 
 			// File write
 			Callable<Boolean> fileWrite = () -> {
-				String inputFileName = "configs/" + modelName + "_input.json";
-				String specFileName = "payloads/"+ modelName + "_spec.json";
+				String inputFileName = "configs/" + modelName + "_config.json";
+				String specFileName = "payloads/"+ modelName + "_payload.json";
 				String filePath = BASE_REPO_PATH + "/" + "resources/freshservice/";
 				fileWrite(filePath, inputFileName, input);
 				fileWrite(filePath, specFileName, input);
