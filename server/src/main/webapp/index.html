@@ -355,6 +355,11 @@ function validateInput() {
 
     var inputPanel = $("#inputPanel");
     var theJson = parseJson( inputCodeMirror.getValue(), false );
+    
+    if(theJson.payload.model !== undefined){
+	    var modelName = $('#model_name');
+	    modelName.val(theJson.payload.model.toLowerCase());
+    }
     if ( theJson ) {
         inputPanel.toggleClass("panel-danger", false);
         inputCodeMirror.setValue( JSON.stringify( theJson, null, '  ' ) );
@@ -371,8 +376,7 @@ $("#inputValidateButton").click( validateInput );
 function generateSpec() {
     var inputPanel = $("#inputPanel");
     var inputJSON = inputCodeMirror.getValue();
-    console.log("=============");
-    console.log(inputJSON);
+   
 
     var inputValid = validateInput();
     if ( ! inputValid ) {
@@ -394,11 +398,13 @@ function generateSpec() {
 
     // Put the results in a div
     posting.done(function( data ) {
-        var content = data ;
-        console.log("========== After Response ==========");
-        console.log("data-> " + data);
+        var content = data ;        
         specCodeMirror.setValue( js_beautify( data, js_beautifyOptions ) );
     });
+    var modelName = $('#model_name').val()
+	var branchName = $('#branch_name');
+    branchName.val(modelName);
+    
 }
 
 function validateSpec() {
