@@ -19,7 +19,11 @@ import org.eclipse.jgit.api.CheckoutCommand;
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.CreateBranchCommand;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.PullCommand;
 import org.eclipse.jgit.api.PushCommand;
+import org.eclipse.jgit.api.ResetCommand;
+import org.eclipse.jgit.api.StashApplyCommand;
+import org.eclipse.jgit.api.StashCreateCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.errors.UnsupportedCredentialItem;
 import org.eclipse.jgit.lib.Repository;
@@ -129,7 +133,15 @@ public class PullRequest extends HttpServlet {
 			if (git.branchList().call().stream().anyMatch(ref -> ref.getName().equals("refs/heads/" + branchName))) {
 				return "Branch name Already exist";
 			}
-
+			//Git Reset
+			StashCreateCommand stashCommand = git.stashCreate();
+		
+			
+			CheckoutCommand checkoutMasterCommand = git.checkout();
+			checkoutMasterCommand.setName("master");
+			PullCommand pullCommand = git.pull();
+			
+			
 			// Create Branch
 			CreateBranchCommand createBranchCommand = git.branchCreate();
 			createBranchCommand.setName(branchName);
@@ -140,14 +152,14 @@ public class PullRequest extends HttpServlet {
 
 			// File write
 			Callable<Boolean> fileWrite = () -> {
-				String inputFileName = "configs/" + modelName + "_config.json";
-				String specFileName = "payloads/"+ modelName + "_payload.json";
+				String specFileName = "configs/" + modelName + "_config.json";
+				String inputFileName = "payloads/"+ modelName + "_payload.json";
 				String filePath = BASE_REPO_PATH + "/" + "resources/freshservice/";
 				fileWrite(filePath, inputFileName, input);
-				fileWrite(filePath, specFileName, input);
+				fileWrite(filePath, specFileName, spec);
 				return true;
 			};
-
+			
 			// Git add
 			AddCommand addCommand = git.add();
 			addCommand.addFilepattern(".");
@@ -162,6 +174,10 @@ public class PullRequest extends HttpServlet {
 			pushCommand.setRemote(REMOTE_NAME);
 
 			ExecutorService executor = Executors.newSingleThreadExecutor();
+			executor.submit(stashCommand).get();
+			executor.submit(checkoutMasterCommand).get();
+			executor.submit(pullCommand).get();
+			
 			executor.submit(createBranchCommand).get();
 			//TODO : Add logger
 			executor.submit(checkoutCommand).get();

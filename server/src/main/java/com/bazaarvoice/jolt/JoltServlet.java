@@ -112,12 +112,12 @@ public class JoltServlet extends HttpServlet {
     * Extracting the Jolt spec array
     * */
     private ArrayList<Object> getArrayList(String spec) {
-        ArrayList<Object> specJSON = (ArrayList) JsonUtils.jsonToObject(spec);
-        LinkedHashMap<String, Object> linkedHashMap3 = (LinkedHashMap) (specJSON.get(0));
-        ArrayList<Object> configs = (ArrayList) linkedHashMap3.get("configs");
-        LinkedHashMap<String, Object> linkedHashMap2 = (LinkedHashMap) configs.get(0);
-        LinkedHashMap<String, Object> linkedHashMap1 = (LinkedHashMap) linkedHashMap2.get("query");
-        ArrayList<Object> al = (ArrayList) linkedHashMap1.get("select");
+    	LinkedHashMap<String, Object> specJSON = (LinkedHashMap<String, Object>) JsonUtils.jsonToObject(spec);                 
+		ArrayList<Object> configs = (ArrayList<Object>) specJSON.get("configs");
+        LinkedHashMap<String, Object> linkedHashMap2 = (LinkedHashMap<String, Object>) configs.get(0);
+        //TODO : Fix the picking first Config issue based on templates
+        LinkedHashMap<String, Object> query = (LinkedHashMap<String, Object>) linkedHashMap2.get("query");
+        ArrayList<Object> al = (ArrayList<Object>) query.get("select");
         return al;
     }
 }
