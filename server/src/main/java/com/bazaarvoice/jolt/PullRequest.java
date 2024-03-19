@@ -1,8 +1,17 @@
 package com.bazaarvoice.jolt;
 
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -21,8 +30,6 @@ import org.eclipse.jgit.api.CreateBranchCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.PullCommand;
 import org.eclipse.jgit.api.PushCommand;
-import org.eclipse.jgit.api.ResetCommand;
-import org.eclipse.jgit.api.StashApplyCommand;
 import org.eclipse.jgit.api.StashCreateCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.errors.UnsupportedCredentialItem;
@@ -36,6 +43,7 @@ import org.eclipse.jgit.transport.ssh.jsch.OpenSshConfig;
 
 import com.bazaarvoice.jolt.helper.GitConstants;
 import com.bazaarvoice.jolt.helper.GitService;
+import com.jcraft.jsch.Logger;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.UserInfo;
 
@@ -113,21 +121,45 @@ public class PullRequest extends HttpServlet {
 
 		String result = this.raisePR(branchName, GitConstants.GIT_REPOSITORY_NAME, JsonUtils.toPrettyJsonString(input),
 				JsonUtils.toPrettyJsonString(spec), modelName);
-
-		System.out.println(result);
-		String res = branchName;
+		
 		// Add PR details in the response
-		response.getWriter().println(res);
+		response.getWriter().println(result);
 	}
 
 	private Repository findRepositoryByName(String repositoryName) throws IOException, URISyntaxException {
 
 		return this.gitService.getHostedRepository("");
 	}
+	
+	
+	@Override
+	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {		
+		String modelName = req.getParameter("modelName");
+		String specFileName = "configs/" + modelName + "_config.json";
+		String inputFileName = "payloads/"+ modelName + "_payload.json";
+		String filePath = BASE_REPO_PATH + "/" + "resources/freshservice/";
+		File specFile = new File(filePath + specFileName);
+		File inputFile = new File(filePath + inputFileName);
+		
+		PrintWriter out = resp.getWriter();
+		resp.setContentType("application/json");
+		resp.setCharacterEncoding("UTF-8");
+		System.out.println(inputFile);
+		out.print(String.format("{\"file_exisit\" : %b}",specFile.exists() || inputFile.exists()));
+		out.close();
+	}
 
 	protected String raisePR(String branchName, String repoName, String input, String spec, String modelName) {
 		//
 		try {
+			String specFileName = "configs/" + modelName + "_config.json";
+			String inputFileName = "payloads/"+ modelName + "_payload.json";
+			
+			File f = new File(specFileName);
+			if(f.exists() && !f.isDirectory()) { 
+			   
+			}
+			
 			Repository r = findRepositoryByName(repoName);
 			Git git = Git.wrap(r);
 			if (git.branchList().call().stream().anyMatch(ref -> ref.getName().equals("refs/heads/" + branchName))) {
@@ -151,9 +183,7 @@ public class PullRequest extends HttpServlet {
 			checkoutCommand.setName(branchName);
 
 			// File write
-			Callable<Boolean> fileWrite = () -> {
-				String specFileName = "configs/" + modelName + "_config.json";
-				String inputFileName = "payloads/"+ modelName + "_payload.json";
+			Callable<Boolean> fileWrite = () -> {				
 				String filePath = BASE_REPO_PATH + "/" + "resources/freshservice/";
 				fileWrite(filePath, inputFileName, input);
 				fileWrite(filePath, specFileName, spec);
@@ -188,7 +218,10 @@ public class PullRequest extends HttpServlet {
 
 			r.close();
 			// Git push
-			return String.format("Branch {} is pushed with changes successfuly", branchName);
+			
+			String response = raisePullrequest(branchName);
+			 
+			return response;
 		} catch (InterruptedException | ExecutionException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -201,7 +234,67 @@ public class PullRequest extends HttpServlet {
 		}
 		return modelName;
 	}
+	
+	
+    private static String raisePullrequest(String branchName) throws RuntimeException{  
+        
+    	//TODO : make owner and repository as dynamic	
+        String baseBaiduUrl = "https://api.github.com/repos/dranjithraj/activity-serv/pulls";
+        String apiKey = "";
+              
 
+        StringBuilder strBuf = new StringBuilder();  
+        
+        HttpURLConnection conn=null;
+        BufferedReader reader=null;
+        try{  
+            //Declare the connection to weather api url
+            URL url = new URL(baseBaiduUrl);  
+            conn = (HttpURLConnection)url.openConnection();  
+            conn.setDoOutput(true);
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Accept", "application/vnd.github+json");
+            conn.setRequestProperty("Authorization", "Bearer "+ apiKey);
+            conn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
+            String postContent = "{\"title\":\"New Feature onboard\",\"body\":\" <Model> Onboarding !\",\"head\":\"dranjithraj:"+branchName+"\",\"base\":\"master\"}";
+            byte[] postData       = postContent.getBytes( StandardCharsets.UTF_8 );
+            try( DataOutputStream wr = new DataOutputStream( conn.getOutputStream())) {
+            	   wr.write(postData);
+        	}
+            
+            if (conn.getResponseCode() != 201) {
+                throw new RuntimeException("HTTP POST Request Failed with Error code : "
+                              + conn.getResponseCode());
+            }
+            //Read the content from the defined connection
+            //Using IO Stream with Buffer raise highly the efficiency of IO
+	        reader = new BufferedReader(new InputStreamReader(conn.getInputStream(),"utf-8"));
+            String output = null;  
+            while ((output = reader.readLine()) != null)  
+                strBuf.append(output);  
+        }catch(MalformedURLException e) {  
+            e.printStackTrace();   
+        }catch(IOException e){  
+            e.printStackTrace();   
+        }
+        finally
+        {
+            if(reader!=null)
+            {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if(conn!=null)
+            {
+                conn.disconnect();
+            }
+        }
+
+        return strBuf.toString();  
+    }
 	private boolean fileWrite(String path, String fileName, String content) {
 		try {
 			FileWriter myWriter = new FileWriter(path + "/" + fileName);

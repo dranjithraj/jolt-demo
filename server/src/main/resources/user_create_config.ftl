@@ -7,7 +7,7 @@
             {
               "operation": "shift",
               "spec": {
-                "#user": [
+                "${modelName}": [
                   "filters.type[0]",
                   "payload[0].content.type",
                   "payload[0].object.type"

@@ -25,12 +25,14 @@ import java.util.logging.Logger;
 @WebServlet("/generate")
 public class GenerateSpec extends HttpServlet {
 
-    public static final String UNDERSCORE = "_";
+    private static final long serialVersionUID = 1L;
+	public static final String UNDERSCORE = "_";
     public static final String PARAM_INPUT = "input";
     public static final String USER_CREATE_CONFIG_FTL = "user_create_config.ftl";
     public static final String MODEL_PROPERTIES = "model_properties";
     public static final String PAYLOAD = "payload";
     public static final String PARAM_TEMPLATE = "template";
+	private static final String MODEL_NAME = "modelName";
     final Logger logger = Logger.getLogger(getClass().getName());
 
     @Override
@@ -40,7 +42,9 @@ public class GenerateSpec extends HttpServlet {
         logger.log(Level.INFO,"sort-> {0}", req.getParameter("sort"));
         logger.log(Level.INFO,"template-> {0}", req.getParameter(PARAM_TEMPLATE));
         String templateFileName = req.getParameter(PARAM_TEMPLATE);
-
+        String modelName = req.getParameter(MODEL_NAME);
+        logger.log(Level.INFO,"Model name-> {0}", modelName);
+        
         String inputPayloadString;
         try {
             inputPayloadString = req.getParameter(PARAM_INPUT);
@@ -54,7 +58,8 @@ public class GenerateSpec extends HttpServlet {
         Configuration configuration = new Configuration();
         LinkedHashMap linkedHashMap = new LinkedHashMap();
         List<Item> items = new ArrayList<>();
-        ItemsList itemsList = new ItemsList(items);
+        ItemsList itemsList = new ItemsList(items);  
+        itemsList.setModelName(modelName);
         try {
             inputPayloadJSON = JsonUtils.jsonToObject(inputPayloadString);
             if (inputPayloadJSON instanceof LinkedHashMap) {
