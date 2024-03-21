@@ -14,5 +14,6 @@ public class ApplicationProperties {
 	
 	public static final String GIT_BASE_REPO_PATH = BASE_REPO_PATH + "/.git";
 	public static final String FRESHSERVICE_FOLDER = "freshservice/";
+	public static final String BASE_BRANCH = "master";
 
 }

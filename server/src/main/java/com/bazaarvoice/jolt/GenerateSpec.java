@@ -27,13 +27,12 @@ public class GenerateSpec extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
 	public static final String UNDERSCORE = "_";
-    public static final String PARAM_INPUT = "input";
-    public static final String USER_CREATE_CONFIG_FTL = "user_create_config.ftl";
+    public static final String PARAM_INPUT = "input";    
     public static final String MODEL_PROPERTIES = "model_properties";
     public static final String PAYLOAD = "payload";
     public static final String PARAM_TEMPLATE = "template";
 	private static final String MODEL_NAME = "modelName";
-    final Logger logger = Logger.getLogger(getClass().getName());
+    private final Logger logger = Logger.getLogger(getClass().getName());
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {

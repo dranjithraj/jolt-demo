@@ -12,10 +12,12 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -27,6 +29,7 @@ import org.eclipse.jgit.api.AddCommand;
 import org.eclipse.jgit.api.CheckoutCommand;
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.CreateBranchCommand;
+import org.eclipse.jgit.api.DeleteBranchCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.PullCommand;
 import org.eclipse.jgit.api.PushCommand;
@@ -43,17 +46,22 @@ import org.eclipse.jgit.transport.ssh.jsch.OpenSshConfig;
 
 import com.bazaarvoice.jolt.helper.GitConstants;
 import com.bazaarvoice.jolt.helper.GitService;
-import com.jcraft.jsch.Logger;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.UserInfo;
 
 /**
- * Servlet implementation class PullRequest
+ * The Servlet implementation class PullRequest This Servlet is doing IO and
+ * Github command that may take little time to respond for post request Caution
+ * : This IO operation may End up failing when concurrent requests hits the this
+ * Servlet Post request. In Future Async Request Queuing would give proper
+ * result.
  */
 @WebServlet("/pullrequest")
 public class PullRequest extends HttpServlet {
-		private static final long serialVersionUID = 1L;
-		private GitService gitService;
+	private static final String REFS_HEADS = "refs/heads/";
+	private static final long serialVersionUID = 1L;
+	private GitService gitService;
+	private final Logger logger = Logger.getLogger(getClass().getName());
 
 	/**
 	 * @throws IOException
@@ -111,10 +119,14 @@ public class PullRequest extends HttpServlet {
 			return;
 		}
 
-		String result = this.raisePR(branchName, GitConstants.GIT_REPOSITORY_NAME, JsonUtils.toPrettyJsonString(input),
-				JsonUtils.toPrettyJsonString(spec), modelName);
-		
-		// Add PR details in the response
+		String result;
+		try {
+			result = this.raisePR(branchName, GitConstants.GIT_REPOSITORY_NAME, JsonUtils.toPrettyJsonString(input),
+					JsonUtils.toPrettyJsonString(spec), modelName);
+		} catch (Exception e) {
+			result = "Exception : " + e.getMessage();
+			e.printStackTrace();
+		}		
 		response.getWriter().println(result);
 	}
 
@@ -122,50 +134,48 @@ public class PullRequest extends HttpServlet {
 
 		return this.gitService.getHostedRepository("");
 	}
-	
-	
+
 	@Override
-	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {		
+	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		String modelName = req.getParameter("modelName");
 		String specFileName = "configs/" + modelName + "_config.json";
-		String inputFileName = "payloads/"+ modelName + "_payload.json";
+		String inputFileName = "payloads/" + modelName + "_payload.json";
 		String filePath = ApplicationProperties.BASE_REPO_PATH + "/" + "resources/freshservice/";
 		File specFile = new File(filePath + specFileName);
 		File inputFile = new File(filePath + inputFileName);
-		
+
 		PrintWriter out = resp.getWriter();
 		resp.setContentType("application/json");
 		resp.setCharacterEncoding("UTF-8");
 		System.out.println(inputFile);
-		out.print(String.format("{\"file_exisit\" : %b}",specFile.exists() || inputFile.exists()));
+		out.print(String.format("{\"file_exisit\" : %b}", specFile.exists() || inputFile.exists()));
 		out.close();
 	}
 
-	protected String raisePR(String branchName, String repoName, String input, String spec, String modelName) {
+	protected String raisePR(String branchName, String repoName, String input, String spec, String modelName) throws Exception {
 		//
+		Repository r = findRepositoryByName(repoName);
+		Git git = Git.wrap(r);
+		// Git checkout master
+		CheckoutCommand checkoutMasterCommand = git.checkout();
+		checkoutMasterCommand.setName(ApplicationProperties.BASE_BRANCH);
+		
 		try {
 			String specFileName = "configs/" + modelName + "_config.json";
-			String inputFileName = "payloads/"+ modelName + "_payload.json";
+			String inputFileName = "payloads/" + modelName + "_payload.json";
+
 			
-			File f = new File(specFileName);
-			if(f.exists() && !f.isDirectory()) { 
-			   
-			}
-			
-			Repository r = findRepositoryByName(repoName);
-			Git git = Git.wrap(r);
-			if (git.branchList().call().stream().anyMatch(ref -> ref.getName().equals("refs/heads/" + branchName))) {
+
+			if (git.branchList().call().stream().anyMatch(ref -> ref.getName().equals(REFS_HEADS + branchName))) {
 				return "Branch name Already exist";
 			}
-			//Git Reset
+
+			// Git Reset
 			StashCreateCommand stashCommand = git.stashCreate();
-		
 			
-			CheckoutCommand checkoutMasterCommand = git.checkout();
-			checkoutMasterCommand.setName("master");
+			// Git Pull
 			PullCommand pullCommand = git.pull();
-			
-			
+
 			// Create Branch
 			CreateBranchCommand createBranchCommand = git.branchCreate();
 			createBranchCommand.setName(branchName);
@@ -175,13 +185,14 @@ public class PullRequest extends HttpServlet {
 			checkoutCommand.setName(branchName);
 
 			// File write
-			Callable<Boolean> fileWrite = () -> {				
-				String filePath = ApplicationProperties.BASE_REPO_PATH + "/" + "resources/" + ApplicationProperties.FRESHSERVICE_FOLDER;
+			Callable<Boolean> fileWrite = () -> {
+				String filePath = ApplicationProperties.BASE_REPO_PATH + "/" + "resources/"
+						+ ApplicationProperties.FRESHSERVICE_FOLDER;
 				fileWrite(filePath, inputFileName, input);
 				fileWrite(filePath, specFileName, spec);
 				return true;
 			};
-			
+
 			// Git add
 			AddCommand addCommand = git.add();
 			addCommand.addFilepattern(".");
@@ -197,100 +208,107 @@ public class PullRequest extends HttpServlet {
 
 			ExecutorService executor = Executors.newSingleThreadExecutor();
 			executor.submit(stashCommand).get();
+			logger.info("Stash command submitted");
 			executor.submit(checkoutMasterCommand).get();
+			logger.info("Checkout command submitted");
 			executor.submit(pullCommand).get();
-			
-			executor.submit(createBranchCommand).get();
-			//TODO : Add logger
-			executor.submit(checkoutCommand).get();
-			executor.submit(fileWrite).get();
-			executor.submit(addCommand).get();
-			executor.submit(commitCommand).get();
-			executor.submit(pushCommand).get();
+			logger.info("Pull command submitted");
 
-			r.close();
-			// Git push
+			executor.submit(createBranchCommand).get();
+			logger.info("Create command submitted");
+			executor.submit(checkoutCommand).get();
+			logger.info("Checkout command submitted");
+
+			executor.submit(fileWrite).get();
+			logger.info("Spec generation and Payload create File Write task submitted");
+
+			executor.submit(addCommand).get();
+			logger.info("Git Add command submitted");
+
+			executor.submit(commitCommand).get();
+			logger.info("Git Commit command submitted");
+
+			executor.submit(pushCommand).get();
+			logger.info("Git Push command submitted");			
 			
-			String response = raisePullrequest(branchName);
-			 
+			// Raise Pull request through API
+			String response = executor.submit(raisePullrequest(branchName)).get();
+			logger.info("Raise pull request command submitted");
+					
 			return response;
 		} catch (InterruptedException | ExecutionException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		} catch (GitAPIException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return modelName;
+			throw e;
+		} catch (GitAPIException e) {						
+			throw e;
+		} 
+		//TODO : Clear the newly created branch;
 	}
-	
-	
-    private static String raisePullrequest(String branchName) throws RuntimeException{  
-        
 
-        StringBuilder strBuf = new StringBuilder();  
-        
-        HttpURLConnection conn=null;
-        BufferedReader reader=null;
-        try{  
-            //Declare the connection to weather api url
-            URL url = new URL(ApplicationProperties.BASE_GIT_REPO_URL);  
-            conn = (HttpURLConnection)url.openConnection();  
-            conn.setDoOutput(true);
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Accept", "application/vnd.github+json");
-            conn.setRequestProperty("Authorization", "Bearer "+ ApplicationProperties.APIKEY);
-            conn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-            String postContent = "{\"title\":\"New Feature onboard\",\"body\":\" <Model> Onboarding !\",\"head\":\""+ApplicationProperties.BRANCH_OWNER+":"+branchName+"\",\"base\":\"master\"}";
-            byte[] postData       = postContent.getBytes( StandardCharsets.UTF_8 );
-            try( DataOutputStream wr = new DataOutputStream( conn.getOutputStream())) {
-            	   wr.write(postData);
-        	}
-            
-            if (conn.getResponseCode() != 201) {
-                throw new RuntimeException("HTTP POST Request Failed with Error code : "
-                              + conn.getResponseCode());
-            }
-            //Read the content from the defined connection
-            //Using IO Stream with Buffer raise highly the efficiency of IO
-	        reader = new BufferedReader(new InputStreamReader(conn.getInputStream(),"utf-8"));
-            String output = null;  
-            while ((output = reader.readLine()) != null)  
-                strBuf.append(output);  
-        }catch(MalformedURLException e) {  
-            e.printStackTrace();   
-        }catch(IOException e){  
-            e.printStackTrace();   
-        }
-        finally
-        {
-            if(reader!=null)
-            {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            if(conn!=null)
-            {
-                conn.disconnect();
-            }
-        }
+	private Callable<String> raisePullrequest(String branchName) throws RuntimeException {
 
-        return strBuf.toString();  
-    }
+		Callable<String> raisePull = () -> {
+			StringBuilder strBuf = new StringBuilder();
+
+			HttpURLConnection conn = null;
+			BufferedReader reader = null;
+			try {
+				// Declare the connection to weather api url
+				URL url = new URL(ApplicationProperties.BASE_GIT_REPO_URL);
+				conn = (HttpURLConnection) url.openConnection();
+				conn.setDoOutput(true);
+				conn.setRequestMethod("POST");
+				conn.setRequestProperty("Accept", "application/vnd.github+json");
+				conn.setRequestProperty("Authorization", "Bearer " + ApplicationProperties.APIKEY);
+				conn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
+				String title = "New Feature onboard";
+				String body = "<Model> Onboarding !";
+				String postContent = String.format(
+						"{\"title\":\"%s\",\"body\":\" %s\",\"head\":\"%s:%s\",\"base\":\"%s\"}", title, body,
+						ApplicationProperties.BRANCH_OWNER, branchName, ApplicationProperties.BASE_BRANCH);
+				logger.info(postContent);
+				byte[] postData = postContent.getBytes(StandardCharsets.UTF_8);
+				try (DataOutputStream wr = new DataOutputStream(conn.getOutputStream())) {
+					wr.write(postData);
+				}
+
+				if (conn.getResponseCode() != 201) {
+					throw new RuntimeException("HTTP POST Request Failed with Error code : " + conn.getResponseCode());
+				}
+				// Read the content from the defined connection
+				// Using IO Stream with Buffer raise highly the efficiency of IO
+				reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"));
+				String output = null;
+				while ((output = reader.readLine()) != null)
+					strBuf.append(output);
+			} catch (MalformedURLException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			} finally {
+				if (reader != null) {
+					try {
+						reader.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+				if (conn != null) {
+					conn.disconnect();
+				}
+			}
+
+			return strBuf.toString();
+		};
+		return raisePull;
+	}
+
 	private boolean fileWrite(String path, String fileName, String content) {
 		try {
 			FileWriter myWriter = new FileWriter(path + "/" + fileName);
 			myWriter.write(content);
 			myWriter.close();
-			System.out.println("Successfully wrote to the file. " + fileName);
 		} catch (IOException e) {
-			System.out.println("An error occurred.");
+			logger.warning("An error occurred.");
 			e.printStackTrace();
 		}
 		return false;
@@ -322,7 +340,7 @@ public class PullRequest extends HttpServlet {
 				UserInfo userInfo = new GitUserInfo(ApplicationProperties.PASS_PHRASE);
 				session.setUserInfo(userInfo);
 				session.setConfig("StrictHostKeyChecking", "no");
-				
+
 			}
 		};
 		SshSessionFactory.setInstance(sessionFactory);
