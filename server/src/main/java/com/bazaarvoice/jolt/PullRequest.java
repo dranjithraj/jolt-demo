@@ -52,16 +52,8 @@ import com.jcraft.jsch.UserInfo;
  */
 @WebServlet("/pullrequest")
 public class PullRequest extends HttpServlet {
-	private static final String PASS_PHRASE = "12345";
-
-	private static final String REMOTE_NAME = "origin";
-	
-	private static final long serialVersionUID = 1L;
-	// Update the path of activity-serve local git location	
-	private static final String BASE_REPO_PATH = "/Users/raraj/Documents/rspace/projects/freshservice/source/activity-serv";
-	
-	private static final String GIT_BASE_REPO_PATH = BASE_REPO_PATH + "/.git";
-	private GitService gitService;
+		private static final long serialVersionUID = 1L;
+		private GitService gitService;
 
 	/**
 	 * @throws IOException
@@ -70,7 +62,7 @@ public class PullRequest extends HttpServlet {
 	public PullRequest() {
 		super();
 		// TODO : Move to singleton
-		this.gitService = new GitService(GIT_BASE_REPO_PATH);
+		this.gitService = new GitService(ApplicationProperties.GIT_BASE_REPO_PATH);
 		try {
 			gitService.getHostedRepository("");
 		} catch (IOException e) {
@@ -137,7 +129,7 @@ public class PullRequest extends HttpServlet {
 		String modelName = req.getParameter("modelName");
 		String specFileName = "configs/" + modelName + "_config.json";
 		String inputFileName = "payloads/"+ modelName + "_payload.json";
-		String filePath = BASE_REPO_PATH + "/" + "resources/freshservice/";
+		String filePath = ApplicationProperties.BASE_REPO_PATH + "/" + "resources/freshservice/";
 		File specFile = new File(filePath + specFileName);
 		File inputFile = new File(filePath + inputFileName);
 		
@@ -184,7 +176,7 @@ public class PullRequest extends HttpServlet {
 
 			// File write
 			Callable<Boolean> fileWrite = () -> {				
-				String filePath = BASE_REPO_PATH + "/" + "resources/freshservice/";
+				String filePath = ApplicationProperties.BASE_REPO_PATH + "/" + "resources/" + ApplicationProperties.FRESHSERVICE_FOLDER;
 				fileWrite(filePath, inputFileName, input);
 				fileWrite(filePath, specFileName, spec);
 				return true;
@@ -201,7 +193,7 @@ public class PullRequest extends HttpServlet {
 			// Git Push
 			PushCommand pushCommand = git.push();
 			pushCommand.getPushDefault();
-			pushCommand.setRemote(REMOTE_NAME);
+			pushCommand.setRemote(ApplicationProperties.REMOTE_NAME);
 
 			ExecutorService executor = Executors.newSingleThreadExecutor();
 			executor.submit(stashCommand).get();
@@ -238,10 +230,6 @@ public class PullRequest extends HttpServlet {
 	
     private static String raisePullrequest(String branchName) throws RuntimeException{  
         
-    	//TODO : make owner and repository as dynamic	
-        String baseBaiduUrl = "https://api.github.com/repos/dranjithraj/activity-serv/pulls";
-        String apiKey = "";
-              
 
         StringBuilder strBuf = new StringBuilder();  
         
@@ -249,14 +237,14 @@ public class PullRequest extends HttpServlet {
         BufferedReader reader=null;
         try{  
             //Declare the connection to weather api url
-            URL url = new URL(baseBaiduUrl);  
+            URL url = new URL(ApplicationProperties.BASE_GIT_REPO_URL);  
             conn = (HttpURLConnection)url.openConnection();  
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Accept", "application/vnd.github+json");
-            conn.setRequestProperty("Authorization", "Bearer "+ apiKey);
+            conn.setRequestProperty("Authorization", "Bearer "+ ApplicationProperties.APIKEY);
             conn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-            String postContent = "{\"title\":\"New Feature onboard\",\"body\":\" <Model> Onboarding !\",\"head\":\"dranjithraj:"+branchName+"\",\"base\":\"master\"}";
+            String postContent = "{\"title\":\"New Feature onboard\",\"body\":\" <Model> Onboarding !\",\"head\":\""+ApplicationProperties.BRANCH_OWNER+":"+branchName+"\",\"base\":\"master\"}";
             byte[] postData       = postContent.getBytes( StandardCharsets.UTF_8 );
             try( DataOutputStream wr = new DataOutputStream( conn.getOutputStream())) {
             	   wr.write(postData);
@@ -326,12 +314,12 @@ public class PullRequest extends HttpServlet {
 					@Override
 					public boolean get(URIish uri, CredentialItem... items) throws UnsupportedCredentialItem {
 						for (CredentialItem item : items) {
-							((CredentialItem.StringType) item).setValue(PASS_PHRASE);
+							((CredentialItem.StringType) item).setValue(ApplicationProperties.PASS_PHRASE);
 						}
 						return true;
 					}
 				};
-				UserInfo userInfo = new GitUserInfo(PASS_PHRASE);
+				UserInfo userInfo = new GitUserInfo(ApplicationProperties.PASS_PHRASE);
 				session.setUserInfo(userInfo);
 				session.setConfig("StrictHostKeyChecking", "no");
 				
