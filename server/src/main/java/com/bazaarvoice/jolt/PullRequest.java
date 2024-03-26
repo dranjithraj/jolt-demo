@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
@@ -12,7 +13,7 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -29,7 +30,6 @@ import org.eclipse.jgit.api.AddCommand;
 import org.eclipse.jgit.api.CheckoutCommand;
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.CreateBranchCommand;
-import org.eclipse.jgit.api.DeleteBranchCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.PullCommand;
 import org.eclipse.jgit.api.PushCommand;
@@ -58,30 +58,32 @@ import com.jcraft.jsch.UserInfo;
  */
 @WebServlet("/pullrequest")
 public class PullRequest extends HttpServlet {
-	private static final String REFS_HEADS = "refs/heads/";
-	private static final long serialVersionUID = 1L;
-	private GitService gitService;
 	private final Logger logger = Logger.getLogger(getClass().getName());
-
+	private static final long serialVersionUID = 1L;
+	
+	private static final String REFS_HEADS = "refs/heads/";
+	
+	private GitConfigurations gitConfigurations;
+	private GitService gitService;
 	/**
 	 * @throws IOException
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public PullRequest() {
 		super();
-		// TODO : Move to singleton
-		this.gitService = new GitService(ApplicationProperties.GIT_BASE_REPO_PATH);
-		try {
-			gitService.getHostedRepository("");
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+				
 	}
 
 	@Override
 	public void init() throws ServletException {
 		// TODO Auto-generated method stub
 		super.init();
+		try {
+			loadProperties();
+		} catch (IOException e) {
+			logger.warning("Servlet init failed" + e.getMessage());
+			e.printStackTrace();
+		}
 		initSession();
 	}
 
@@ -140,7 +142,7 @@ public class PullRequest extends HttpServlet {
 		String modelName = req.getParameter("modelName");
 		String specFileName = "configs/" + modelName + "_config.json";
 		String inputFileName = "payloads/" + modelName + "_payload.json";
-		String filePath = ApplicationProperties.BASE_REPO_PATH + "/" + "resources/freshservice/";
+		String filePath = gitConfigurations.getLocalRepoPath() + "/" + "resources/freshservice/";
 		File specFile = new File(filePath + specFileName);
 		File inputFile = new File(filePath + inputFileName);
 
@@ -158,7 +160,7 @@ public class PullRequest extends HttpServlet {
 		Git git = Git.wrap(r);
 		// Git checkout master
 		CheckoutCommand checkoutMasterCommand = git.checkout();
-		checkoutMasterCommand.setName(ApplicationProperties.BASE_BRANCH);
+		checkoutMasterCommand.setName(gitConfigurations.getBaseBranchName());
 		
 		try {
 			String specFileName = "configs/" + modelName + "_config.json";
@@ -186,8 +188,8 @@ public class PullRequest extends HttpServlet {
 
 			// File write
 			Callable<Boolean> fileWrite = () -> {
-				String filePath = ApplicationProperties.BASE_REPO_PATH + "/" + "resources/"
-						+ ApplicationProperties.FRESHSERVICE_FOLDER;
+				String filePath = gitConfigurations.getLocalRepoPath()+ "/" + "resources/"
+						+ gitConfigurations.getSpecFolder();
 				fileWrite(filePath, inputFileName, input);
 				fileWrite(filePath, specFileName, spec);
 				return true;
@@ -204,7 +206,7 @@ public class PullRequest extends HttpServlet {
 			// Git Push
 			PushCommand pushCommand = git.push();
 			pushCommand.getPushDefault();
-			pushCommand.setRemote(ApplicationProperties.REMOTE_NAME);
+			pushCommand.setRemote(gitConfigurations.getBaseBranchName());
 
 			ExecutorService executor = Executors.newSingleThreadExecutor();
 			executor.submit(stashCommand).get();
@@ -253,18 +255,18 @@ public class PullRequest extends HttpServlet {
 			BufferedReader reader = null;
 			try {
 				// Declare the connection to weather api url
-				URL url = new URL(ApplicationProperties.BASE_GIT_REPO_URL);
+				URL url = new URL(gitConfigurations.getApiUrl());
 				conn = (HttpURLConnection) url.openConnection();
 				conn.setDoOutput(true);
 				conn.setRequestMethod("POST");
 				conn.setRequestProperty("Accept", "application/vnd.github+json");
-				conn.setRequestProperty("Authorization", "Bearer " + ApplicationProperties.APIKEY);
+				conn.setRequestProperty("Authorization", "Bearer " + gitConfigurations.getApiKey());
 				conn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
 				String title = "New Feature onboard";
 				String body = "<Model> Onboarding !";
 				String postContent = String.format(
 						"{\"title\":\"%s\",\"body\":\" %s\",\"head\":\"%s:%s\",\"base\":\"%s\"}", title, body,
-						ApplicationProperties.BRANCH_OWNER, branchName, ApplicationProperties.BASE_BRANCH);
+						gitConfigurations.getBaseBranchOwner(), branchName, gitConfigurations.getBaseBranchName());
 				logger.info(postContent);
 				byte[] postData = postContent.getBytes(StandardCharsets.UTF_8);
 				try (DataOutputStream wr = new DataOutputStream(conn.getOutputStream())) {
@@ -315,6 +317,12 @@ public class PullRequest extends HttpServlet {
 	}
 
 	private void initSession() {
+		this.gitService = new GitService(gitConfigurations.getLocalRepoPath() + GitConfigurations.GIT_BASE_REPO_PATH );
+		try {
+			gitService.getHostedRepository("");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		JschConfigSessionFactory sessionFactory = new JschConfigSessionFactory() {
 			@Override
 			protected void configure(OpenSshConfig.Host hc, Session session) {
@@ -332,18 +340,24 @@ public class PullRequest extends HttpServlet {
 					@Override
 					public boolean get(URIish uri, CredentialItem... items) throws UnsupportedCredentialItem {
 						for (CredentialItem item : items) {
-							((CredentialItem.StringType) item).setValue(ApplicationProperties.PASS_PHRASE);
+							((CredentialItem.StringType) item).setValue(gitConfigurations.getSshkeyPassphrase());
 						}
 						return true;
 					}
 				};
-				UserInfo userInfo = new GitUserInfo(ApplicationProperties.PASS_PHRASE);
+				UserInfo userInfo = new GitUserInfo(gitConfigurations.getSshkeyPassphrase());
 				session.setUserInfo(userInfo);
 				session.setConfig("StrictHostKeyChecking", "no");
 
 			}
 		};
-		SshSessionFactory.setInstance(sessionFactory);
+		SshSessionFactory.setInstance(sessionFactory);		
+	}
+	private void loadProperties() throws IOException {
+		InputStream is = getClass().getResourceAsStream("git.properties");
+		Properties properties = new Properties();
+		properties.load(is);
+		gitConfigurations = new GitConfigurations(properties);
 	}
 }
 

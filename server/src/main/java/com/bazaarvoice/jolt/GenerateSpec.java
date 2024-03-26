@@ -36,13 +36,9 @@ public class GenerateSpec extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
-        logger.info("===========/generate POST Request ===========");
-        logger.log(Level.INFO, "input-> {0}", req.getParameter(PARAM_INPUT));
-        logger.log(Level.INFO,"sort-> {0}", req.getParameter("sort"));
-        logger.log(Level.INFO,"template-> {0}", req.getParameter(PARAM_TEMPLATE));
+        
         String templateFileName = req.getParameter(PARAM_TEMPLATE);
-        String modelName = req.getParameter(MODEL_NAME);
-        logger.log(Level.INFO,"Model name-> {0}", modelName);
+        String modelName = req.getParameter(MODEL_NAME);        
         
         String inputPayloadString;
         try {
