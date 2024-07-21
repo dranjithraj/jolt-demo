@@ -3,12 +3,10 @@ package com.bazaarvoice.jolt;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -21,27 +19,36 @@ import org.eclipse.jgit.api.CheckoutCommand;
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.CreateBranchCommand;
 import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.GitCommand;
 import org.eclipse.jgit.api.PushCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.lib.Ref;
+import org.eclipse.jgit.errors.UnsupportedCredentialItem;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.transport.CredentialItem;
+import org.eclipse.jgit.transport.CredentialsProvider;
+import org.eclipse.jgit.transport.SshSessionFactory;
+import org.eclipse.jgit.transport.URIish;
+import org.eclipse.jgit.transport.ssh.jsch.JschConfigSessionFactory;
+import org.eclipse.jgit.transport.ssh.jsch.OpenSshConfig;
 
 import com.bazaarvoice.jolt.helper.GitConstants;
 import com.bazaarvoice.jolt.helper.GitService;
+import com.jcraft.jsch.Session;
+import com.jcraft.jsch.UserInfo;
 
 /**
  * Servlet implementation class PullRequest
  */
 @WebServlet("/pullrequest")
 public class PullRequest extends HttpServlet {
-	private static final long serialVersionUID = 1L;
-	// Update the path of jolt-specs / activity-serve local git location
-	// private static final String BASE_REPO_PATH = "<jolt-specs_location>";
-	private static final String BASE_REPO_PATH = "/Users/raraj/Documents/rspace/projects/freshservice/source/jolt-try/jolt-specs";
-	private static final String GIT_BASE_REPO_PATH = BASE_REPO_PATH + "/.git";
-	private Repository repository;
+	private static final String PASS_PHRASE = "<GIT_SSH_PASS_PHRASE>";
 
+	private static final String REMOTE_NAME = "<DEFAULT_ORIGIN>";
+	
+	private static final long serialVersionUID = 1L;
+	// Update the path of activity-serve local git location	
+	private static final String BASE_REPO_PATH = "<activity-serv_local_repo>";
+	
+	private static final String GIT_BASE_REPO_PATH = BASE_REPO_PATH + "/.git";
 	private GitService gitService;
 
 	/**
@@ -53,10 +60,17 @@ public class PullRequest extends HttpServlet {
 		// TODO : Move to singleton
 		this.gitService = new GitService(GIT_BASE_REPO_PATH);
 		try {
-			this.repository = gitService.getHostedRepository("");
+			gitService.getHostedRepository("");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	@Override
+	public void init() throws ServletException {
+		// TODO Auto-generated method stub
+		super.init();
+		initSession();
 	}
 
 	/**
@@ -118,56 +132,56 @@ public class PullRequest extends HttpServlet {
 
 			// Create Branch
 			CreateBranchCommand createBranchCommand = git.branchCreate();
-			createBranchCommand.setName(branchName);			
-			
+			createBranchCommand.setName(branchName);
 
 			// Git checkout
 			CheckoutCommand checkoutCommand = git.checkout();
 			checkoutCommand.setName(branchName);
-			
-			
+
 			// File write
 			Callable<Boolean> fileWrite = () -> {
-				String inputFileName = modelName + "_input.json";
-				String specFileName = modelName + "_spec.json";
-				String filePath = BASE_REPO_PATH + "/" + "specs/";
+				String inputFileName = "configs/" + modelName + "_input.json";
+				String specFileName = "payloads/"+ modelName + "_spec.json";
+				String filePath = BASE_REPO_PATH + "/" + "resources/freshservice/";
 				fileWrite(filePath, inputFileName, input);
-				 fileWrite(filePath, specFileName, input);
-				 return true;
+				fileWrite(filePath, specFileName, input);
+				return true;
 			};
-			
+
 			// Git add
 			AddCommand addCommand = git.add();
 			addCommand.addFilepattern(".");
-			
+
 			// Git commit
 			CommitCommand commitCommand = git.commit();
 			commitCommand.setMessage("Onboard " + modelName);
 
-			//Git Push
+			// Git Push
 			PushCommand pushCommand = git.push();
 			pushCommand.getPushDefault();
-			
+			pushCommand.setRemote(REMOTE_NAME);
+
 			ExecutorService executor = Executors.newSingleThreadExecutor();
 			executor.submit(createBranchCommand).get();
+			//TODO : Add logger
 			executor.submit(checkoutCommand).get();
 			executor.submit(fileWrite).get();
 			executor.submit(addCommand).get();
 			executor.submit(commitCommand).get();
-			//executor.submit(pushCommand).get();
-			
-			
+			executor.submit(pushCommand).get();
+
 			r.close();
 			// Git push
-			return branchName + " created successful";
+			return String.format("Branch {} is pushed with changes successfuly", branchName);
 		} catch (InterruptedException | ExecutionException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
-		} catch (GitAPIException e) {
-			throw new RuntimeException(e);
 		} catch (URISyntaxException e) {
 			throw new RuntimeException(e);
+		} catch (GitAPIException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		return modelName;
 	}
@@ -176,7 +190,7 @@ public class PullRequest extends HttpServlet {
 		try {
 			FileWriter myWriter = new FileWriter(path + "/" + fileName);
 			myWriter.write(content);
-			myWriter.close();			
+			myWriter.close();
 			System.out.println("Successfully wrote to the file. " + fileName);
 		} catch (IOException e) {
 			System.out.println("An error occurred.");
@@ -185,4 +199,79 @@ public class PullRequest extends HttpServlet {
 		return false;
 	}
 
+	private void initSession() {
+		JschConfigSessionFactory sessionFactory = new JschConfigSessionFactory() {
+			@Override
+			protected void configure(OpenSshConfig.Host hc, Session session) {
+				CredentialsProvider provider = new CredentialsProvider() {
+					@Override
+					public boolean isInteractive() {
+						return false;
+					}
+
+					@Override
+					public boolean supports(CredentialItem... items) {
+						return true;
+					}
+
+					@Override
+					public boolean get(URIish uri, CredentialItem... items) throws UnsupportedCredentialItem {
+						for (CredentialItem item : items) {
+							((CredentialItem.StringType) item).setValue(PASS_PHRASE);
+						}
+						return true;
+					}
+				};
+				UserInfo userInfo = new GitUserInfo(PASS_PHRASE);
+				session.setUserInfo(userInfo);
+				session.setConfig("StrictHostKeyChecking", "no");
+				
+			}
+		};
+		SshSessionFactory.setInstance(sessionFactory);
+	}
+}
+
+class GitUserInfo implements UserInfo {
+	String password = null;
+	String passPhrase = null;
+
+	GitUserInfo(String passPhrase) {
+		this.passPhrase = passPhrase;
+	}
+
+	@Override
+	public String getPassphrase() {
+		return passPhrase;
+	}
+
+	@Override
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String passwd) {
+		password = passwd;
+	}
+
+	@Override
+	public boolean promptPassphrase(String message) {
+		return true;
+	}
+
+	@Override
+	public boolean promptPassword(String message) {
+		return true;
+	}
+
+	@Override
+	public boolean promptYesNo(String message) {
+		return true;
+	}
+
+	@Override
+	public void showMessage(String message) {
+		// TODO Auto-generated method stub
+
+	}
 }
